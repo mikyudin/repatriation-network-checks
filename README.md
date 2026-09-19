@@ -37,6 +37,7 @@ Each of these is asserted by the script rather than stated.
 | ExpressRoute Unlimited break-even against Metered | **50.3%** sustained utilisation on 1 Gbps Zone 2, 47.9% on 10 Gbps |
 | ExpressRoute virtual network gateway, absent from every comparison found | **31.8%** of the circuit charge, and the circuit will not pass traffic without it |
 | 37signals moving 5 PB off S3 in under 10 days on a 100 GbE link | **46.3 Gbps sustained**, and that is a floor |
+| Google Cloud, unlike AWS and Azure, has **no free egress allowance** | Premium Tier charges from the first GiB |
 
 Two results ran against expectation. Cheaper per-gigabyte zones push the
 ExpressRoute Unlimited threshold *further out* rather than closer, so Canberra
@@ -109,7 +110,9 @@ group 5 sweeps rather than fixing.
 only publicly citable Sydney figure is a **10 GigE** quote from November 2021,
 and the 2026 floor is **100 GigE**, so a ratio across them folds a port-size
 change into a five-year price collapse. Group 8 shows the arithmetic and the
-size of the error instead of committing it.
+size of both errors instead of committing them: the naive cross-port ratio is
+83x, the same-port 2021-to-2026 ratio is 35.7x, and Mumbai's own 100 GigE price
+fell 35% compounded annually over three years, a 73% fall.
 
 ## Licence
 
