@@ -21,11 +21,13 @@ isolated so a reader can replace them:
     real traffic profile. Group 5 sweeps it rather than picking one.
 
 There is no 2026 Australian IP transit price in this file. TeleGeography's
-only published Sydney figure is from November 2021 and transit has fallen
-17-22% compounded annually since, so deriving a 2026 Australian multiple from
-it would be wrong by a large factor. Group 5 uses the published 2026 global
-floor instead, and the Australian side of the comparison rests on the IX
-Australia port price, which is current and public.
+only published Sydney figure is from November 2021, it is for a 10 GigE port
+rather than the 100 GigE the 2026 floor describes, and Mumbai's 100 GigE price
+fell 35% compounded annually over the same window. Deriving a 2026 Australian
+multiple from it would therefore be wrong twice over. Group 5 uses the
+published 2026 global floor, group 8 shows both errors and what an inferred
+Australian price would do instead, and the Australian side of the comparison
+rests on the IX Australia port price, which is current and public.
 
 Groups:
 
@@ -340,6 +342,18 @@ def group2():
           " by a third at\n        volume. The cheaper option is the one"
           " labelled 'Internet'.")
 
+    # Google, charted in the same figure. GCP has NO free allowance and prices
+    # per GiB, both of which the post states.
+    gcp = PRICES["gcp_egress_oceania_gib"]
+    check("GCP Premium Tier Oceania, first tier, USD/GiB", gcp[0][1], 0.1158)
+    check("GCP Premium Tier Oceania, top tier, USD/GiB", gcp[-1][1], 0.0697)
+    check("GCP's first tier is paid from the first GiB, i.e. no free allowance",
+          gcp[0][1] > 0, True)
+    close("GCP Oceania first tier to top tier, fall %",
+          round((1 - gcp[-1][1] / gcp[0][1]) * 100, 0), 40.0, 0.5)
+    close("Azure internet routing, first tier to top tier, fall %",
+          round((1 - inet[-1][1] / inet[1][1]) * 100, 0), 45.0, 0.5)
+
     check("Azure internet-routing top tier undercuts AWS Sydney's top tier",
           inet[-1][1] < syd[-1][1], True)
     close("by this much per GB", round(syd[-1][1] - inet[-1][1], 3), 0.032,
@@ -427,6 +441,15 @@ def group4():
     for ratio, want in ((4.0, 17.5), (2.5, 28.0)):
         close(f"mean utilisation implied by a 70% peak at ratio {ratio}, %",
               round(70.0 / ratio, 1), want, 0.05)
+
+    # "roughly twice the price of Metered" on the profile the post describes.
+    cap_1g = gb_per_mbps_month(1000)
+    for util, want in ((0.175, 2.6), (0.28, 1.7)):
+        metered_total = (PRICES["az_er_metered_circuit"][1]
+                         + zone2 * cap_1g * util)
+        close(f"Unlimited over Metered at {util*100:.1f}% sustained",
+              round(PRICES["az_er_unlimited_circuit_z2"][1] / metered_total, 1),
+              want, 0.05)
 
     zone1 = PRICES["az_er_egress_by_zone"][1]
     cross_z1 = (PRICES["az_er_unlimited_circuit_z1"][1] -
@@ -533,6 +556,12 @@ def group6():
           " is the cheap option INSIDE the region and\n        the expensive"
           " one leaving it.")
 
+    counts = PRICES["aws_dx_inter_location_counts"]
+    check("DX locations in the North America and Europe group",
+          counts["north_america_europe"], 34)
+    check("DX locations in the LatAm / Africa / Middle East group",
+          counts["latam_africa_me"], 14)
+
     check("Equinix ME2 Melbourne is billed InterRegion at the IntraRegion rate",
           inter["melbourne_eqme2"], PRICES["aws_dx_egress_intra_au"])
 
@@ -629,9 +658,11 @@ def group8():
 
     # Reason one: the 2021 quotes are 10 GigE ports and the 2026 floor is
     # 100 GigE, so a ratio across them mixes port size with elapsed time.
-    check("the 2021 Sydney and Mumbai quotes are 10 GigE ports",
-          ("10ge" in "transit_syd_2021_10ge") and
-          ("10ge" in "transit_mumbai_2021_10ge"), True)
+    # The same-port-size comparison, which is the one a reader should make:
+    # 2021 10 GigE Sydney against the 2026 10 GigE floor, not the 100 GigE one.
+    same_port = syd21 / PRICES["transit_floor_10ge"]
+    close("2021 Sydney against the 2026 10 GigE floor (same port size)",
+          round(same_port, 1), 35.7, 0.05)
     naive = syd21 / floor
     close("the naive 2021-Sydney-over-2026-floor ratio somebody would compute",
           round(naive, 0), 83.0, 0.5)
@@ -644,6 +675,12 @@ def group8():
     # source. Mumbai 100 GigE fell 35% compounded annually for three years.
     cagr = PRICES["transit_mumbai_cagr_decline"]
     total_fall = 1 - (1 - cagr) ** 3
+    check("Asia 10 GigE CAGR decline, as reported",
+          PRICES["transit_asia_10ge_cagr_decline"], 0.17)
+    check("Asia 100 GigE CAGR decline, as reported",
+          PRICES["transit_asia_100ge_cagr_decline"], 0.22)
+    check("global 100 GigE CAGR decline, as reported",
+          PRICES["transit_100ge_cagr_decline"], 0.17)
     close("Mumbai 100 GigE, three years at 35% CAGR, total fall",
           round(total_fall, 3), 0.725, 0.001)
     print(f"     -> a {total_fall*100:.0f}% fall in three years on a single"
@@ -667,12 +704,22 @@ def group8():
           " than hiding behind the global floor, and\n        still does not"
           " publish 0.50 as a price, because it is not one.")
 
+    # "16 times smaller than the headline", checked three ways.
+    for lbl, got in (("by multiple at r=1", 1248 / 75),
+                     ("by multiple at r=4", 312 / 19),
+                     ("by price ratio", inferred_syd / floor)):
+        close(f"headline shrinks by this factor, {lbl}", round(got, 1),
+              16.6, 0.3)
+
     # The IX port, which IS a current published Australian number.
     ix_aud = PRICES["ixa_port_aud_month"][100] / 100_000
     close("IX Australia 100G port, AUD per Mbps per month", round(ix_aud, 5),
           0.0095, 1e-6)
-    check("and it is a peering port, not transit, so it is not a substitute",
-          True, True)
+    close("IX Australia 100G port on a 36-month term, AUD per month",
+          PRICES["ixa_port_aud_36mo"][100], 807.50, 0.001)
+    close("  as a discount on month-to-month, %",
+          round((1 - PRICES["ixa_port_aud_36mo"][100] /
+                 PRICES["ixa_port_aud_month"][100]) * 100, 1), 15.0, 0.05)
 
     SKIPPED.append("2026 Australian IP transit median: TeleGeography's IP "
                    "Transit Pricing Service is the only source and it is "
